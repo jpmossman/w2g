@@ -45,30 +45,12 @@
             }
 
             document.getElementById("video_url").value = share_data.url;
-            document.getElementById("video_url")
-                .addEventListener("keypress", function(event) {
-                    if(event.keyCode === 13) {
-                        share_data.url = this.value;
-                    }
-                }, false);
-
             document.getElementById("broker_host").value = share_data.mqtt_host;
-            document.getElementById("broker_host")
-                .addEventListener("keypress", function(event) {
-                    if(event.keyCode === 13) {
-                        share_data.mqtt_host = this.value;
-                    }
-                }, false);
-
             document.getElementById("broker_port").value = share_data.mqtt_port;
-            document.getElementById("broker_port")
-                .addEventListener("keypress", function(event) {
-                    if(event.keyCode === 13) {
-                        share_data.mqtt_port = this.value;
-                    }
-                }, false);
-
             function save_settings() {
+                share_data.url = document.getElementById("video_url").value;
+                share_data.mqtt_host = document.getElementById("broker_host").value;
+                share_data.mqtt_port = document.getElementById("broker_port").value;
                 window.location.href = window.location.href.split("?")[0] + "?share=" + btoa(JSON.stringify(share_data));
             }
         </script>
