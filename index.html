@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Watch Together!</title>
+    </head>
+    <body>
+        <h1>Watch Together!</h1>
+
+        <video id="main_video" muted="true" controls></video>
+        <br/>
+
+        <button onclick="f1()">Test</button>
+        <br/>
+
+        <label for="video_url">Video URL:</label>
+        <textarea id="video_url"></textarea>
+        <br/>
+
+        <label for="broker_host">Broker host:</label>
+        <textarea id="broker_host"></textarea>
+        <br/>
+
+        <label for="broker_port">Broker port:</label>
+        <textarea id="broker_port"></textarea>
+        <br/>
+
+        <button onclick="save_settings()">Refresh Page and Settings</button>
+        <br/>
+
+        <script>
+            // Setup
+            const url2 = new URL(window.location.toLocaleString());
+            const share_string = atob(url2.searchParams.get("share"));
+            try {
+                var share_data = JSON.parse(share_string);
+            } catch (e) {
+                // Default share data
+                var share_data = {
+                    url: "https://bit.ly/3BlS71b",
+                    mqtt_host: "localhost",
+                    mqtt_port: 8080,
+                    mqtt_user: null,
+                    mqtt_pass: null,
+                };
+            }
+
+            document.getElementById("video_url").value = share_data.url;
+            document.getElementById("video_url")
+                .addEventListener("keypress", function(event) {
+                    if(event.keyCode === 13) {
+                        share_data.url = this.value;
+                    }
+                }, false);
+
+            document.getElementById("broker_host").value = share_data.mqtt_host;
+            document.getElementById("broker_host")
+                .addEventListener("keypress", function(event) {
+                    if(event.keyCode === 13) {
+                        share_data.mqtt_host = this.value;
+                    }
+                }, false);
+
+            document.getElementById("broker_port").value = share_data.mqtt_port;
+            document.getElementById("broker_port")
+                .addEventListener("keypress", function(event) {
+                    if(event.keyCode === 13) {
+                        share_data.mqtt_port = this.value;
+                    }
+                }, false);
+
+            function save_settings() {
+                window.location.href = window.location.href.split("?")[0] + "?share=" + btoa(JSON.stringify(share_data));
+            }
+        </script>
+
+        <script>
+            // Buttons and stuff
+            // Test button function
+            function f1() {
+                var start = "hello btoa";
+                console.log(start);
+                console.log(btoa(start));
+                console.log(atob(btoa(start)));
+            }
+
+            function rand_string(length) {
+                let result = "";
+                const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+                for (let i = 0; i < length; i++) {
+                    result += characters.charAt(Math.floor(Math.random() * characters.length));
+                }
+                return result;
+            }
+        </script>
+
+        <script>
+            // Video stuff
+            // Video we are watching2gether
+            var video = document.querySelector(id="#main_video");
+            var source = document.createElement("source");
+            source.setAttribute("src", share_data.url);
+            source.setAttribute("type","video/mp4");
+            video.appendChild(source);
+            console.log(video);
+
+            function send_video_update() {
+                if (Date.now() - last_received < 1000) {
+                    return;
+                }
+                client.publish("video/update", JSON.stringify({
+                    user: user,
+                    currentTime: video.currentTime,
+                    paused: video.paused,
+                    video: share_data.url,
+                }), { qos: 1, retain: true });
+            }
+
+            // Callbacks
+            video.onseeked = function(seeked) {send_video_update()};
+            video.onplay = function() {send_video_update()};
+            video.onpause = function() {send_video_update()};
+        </script>
+
+        <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+        <script>
+            // MQTT stuff
+            const user = rand_string(32);
+
+            // Make MQTT client
+            const options = {
+                // Broker
+                host: share_data.mqtt_host,
+                port: share_data.mqtt_port,
+                // Clean session
+                clean: true,
+                connectTimeout: 4000,
+                // Authentication
+                clientId: user,
+                username: share_data.mqtt_user,
+                password: share_data.mqtt_pass,
+            };
+            const client = mqtt.connect(options);
+
+            // Connect MQTT client
+            client.on("connect", function () {
+                console.log("MQTT Connected");
+                // Subscribe to a topic
+                client.subscribe("video/#", function (err) {
+                    if (err) {
+                        console.log(err);
+                    }
+                });
+            });
+
+            var last_received = 0;
+            // Handle MQTT messages
+            client.on("message", function(topic, msg) {
+                // Parse msg to JSON object
+                msg = JSON.parse(msg);
+                if (msg.user == user || msg.video != share_data.url) {
+                    return;
+                }
+                last_received = Date.now();
+
+                // Log messages
+                console.log(topic, msg);
+                // Process message
+                if (topic.startsWith("video/update")) {
+                    video.currentTime = msg.currentTime;
+                    if (msg.paused) {
+                        video.pause();
+                    } else {
+                        video.play();
+                    }
+                    return;
+                }
+            });
+        </script>
+    </body>
+</html>
